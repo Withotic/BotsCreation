@@ -4,10 +4,11 @@ import os
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
-dp = Dispatcher(Bot(token=os.getenv("TOKEN")),storage=MemoryStorage())
-
+load_dotenv()
+dp = Dispatcher(Bot(token=str(os.getenv("TOKEN"))),storage=MemoryStorage())
 hodmarkup=types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True)
 hodmarkup.add(types.KeyboardButton("1"))
 hodmarkup.add(types.KeyboardButton("2"))
