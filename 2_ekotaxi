@@ -1,0 +1,112 @@
+import gspread_asyncio
+import logging
+import os
+
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.dispatcher.filters.state import StatesGroup, State
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from dotenv import load_dotenv
+from google.oauth2.service_account import Credentials
+from typing import Optional
+
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
+sheetkey=os.getenv("SHEETKEY")
+print(sheetkey)
+admin=str(os.getenv("ADMIN"))
+bot=Bot(token=str(os.getenv("TOKEN")))
+dp = Dispatcher(bot,storage=MemoryStorage())
+hodmarkup=types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True)
+hodmarkup.add(types.KeyboardButton("1"))
+hodmarkup.add(types.KeyboardButton("2"))
+hodmarkup.add(types.KeyboardButton("Рестарт"))
+
+restart=types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True)
+restart.add(types.KeyboardButton("Рестарт"))
+
+ws_orders: Optional[gspread_asyncio.AsyncioGspreadWorksheet] = None
+
+class Status(StatesGroup):
+    start=State()
+    waittime=State()
+    waitadress=State()
+    waitcar=State()
+    adress=""
+    time=""
+
+def get_creds():
+    # To obtain a service account JSON file, follow these steps:
+    # https://gspread.readthedocs.io/en/latest/oauth2.html#for-bots-using-service-account
+    creds = Credentials.from_service_account_file("q.json")
+    scoped = creds.with_scopes([
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ])
+    return scoped
+
+
+
+async def init_gspread() -> None:
+    global ws_orders
+    if ws_orders:
+        return
+
+    agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
+    agc = await agcm.authorize()
+    ss = await agc.open_by_key(sheetkey)
+
+
+    ws_orders = await ss.get_worksheet(0)
+
+@dp.message_handler(state=Status.waitcar)
+async def start(message:types.Message)->None:
+    car=str(message.text)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("Сделать заказ"))
+    await init_gspread()
+    await message.answer("Принято", reply_markup=markup)
+    await bot.send_message(admin,
+                           "Новый заказ!\nАдрес: " + Status.adress + "\nВремя: " + Status.time + "\nДанные: "+str(message.from_user))
+    await ws_orders.append_row([
+        Status.adress, Status.time, car
+    ])
+    await Status.start.set()
+
+
+@dp.message_handler(state=Status.waittime)
+async def start(message:types.Message)->None:
+    Status.time=str(message.text)
+    markup = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton('Велосипед',callback_data='1'),
+            types.InlineKeyboardButton('Легковой автомобиль',callback_data='2'),
+            types.InlineKeyboardButton('Грузовик',callback_data='3'),
+        ]
+    ])
+    await message.answer("Выберите вид транспорта", reply_markup=markup)
+    await Status.waitcar.set()
+
+
+@dp.message_handler(state=Status.waitadress)
+async def start(message:types.Message)->None:
+    Status.adress = str(message.text)
+    markup=types.ReplyKeyboardRemove()
+    await message.answer("Введите время подачи", reply_markup=markup)
+    await Status.waittime.set()
+
+@dp.message_handler(state=Status.start)
+async def start(message:types.Message)->None:
+    await message.answer("Введите адрес подачи транспорта.")
+    await Status.waitadress.set()
+
+@dp.message_handler(state="*")
+async def start(message:types.Message)->None:
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True)
+    markup.add(types.KeyboardButton("Сделать заказ"))
+    await message.answer("Здравствуйте, я, бот экотакси, готов принять ваш заказ.",reply_markup=markup)
+    await Status.start.set()
+
+if __name__ == "__main__":
+    executor.start_polling(dp,skip_updates=True)
