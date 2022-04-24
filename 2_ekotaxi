@@ -77,13 +77,10 @@ async def start(message:types.Message)->None:
 @dp.message_handler(state=Status.waittime)
 async def start(message:types.Message)->None:
     Status.time=str(message.text)
-    markup = types.InlineKeyboardMarkup(inline_keyboard=[
-        [
-            types.InlineKeyboardButton('Велосипед',callback_data='1'),
-            types.InlineKeyboardButton('Легковой автомобиль',callback_data='2'),
-            types.InlineKeyboardButton('Грузовик',callback_data='3'),
-        ]
-    ])
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("Велосипед"))
+    markup.add(types.KeyboardButton("Легковой автомобиль"))
+    markup.add(types.KeyboardButton("Грузовик"))
     await message.answer("Выберите вид транспорта", reply_markup=markup)
     await Status.waitcar.set()
 
