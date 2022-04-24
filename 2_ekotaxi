@@ -67,7 +67,7 @@ async def start(message:types.Message)->None:
     await init_gspread()
     await message.answer("Принято", reply_markup=markup)
     await bot.send_message(admin,
-                           "Новый заказ!\nАдрес: " + Status.adress + "\nВремя: " + Status.time + "\nДанные: "+str(message.from_user))
+                           "Новый заказ!\nАдрес: " + Status.adress + "\nВремя: " + Status.time +"\nТранспорт: "+car+ "\nДанные: "+str(message.from_user))
     await ws_orders.append_row([
         Status.adress, Status.time, car
     ])
