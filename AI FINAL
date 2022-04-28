@@ -1,0 +1,131 @@
+import gspread_asyncio
+import logging
+import os
+
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.dispatcher.filters.state import StatesGroup, State
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from dotenv import load_dotenv
+from typing import Optional
+
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
+admin=str(os.getenv("ADMIN"))
+bot=Bot(token=str(os.getenv("TOKEN")))
+dp = Dispatcher(bot,storage=MemoryStorage())
+
+ws_orders: Optional[gspread_asyncio.AsyncioGspreadWorksheet] = None
+
+class Status(StatesGroup):
+    waitsphere=State()
+    waitobj = State()
+    end = State()
+    hop = State()
+    sphere=0
+    obj=0
+
+@dp.message_handler(state=Status.hop)
+async def end(message:types.Message)->None:
+    if message.text=="Рестарт":
+        await start(message)
+    elif "1" in message.text:
+        await Status.end.set()
+        await obj(message)
+    elif "2" in message.text:
+        await Status.waitsphere.set()
+        await sphere(message)
+    elif "3" in message.text:
+        await Status.waitsphere.set()
+        await start(message)
+
+@dp.message_handler(state=Status.end)
+async def end(message:types.Message)->None:
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("1.Задать вопрос в том же предмете."))
+    markup.add(types.KeyboardButton("2.Выбрать другой предмет."))
+    markup.add(types.KeyboardButton("3.Выбрать другую сферу."))
+    await message.answer("Это демонстрационная версия. Здесь только сферы",reply_markup=markup)
+    await Status.hop.set()
+
+@dp.message_handler(state=Status.waitobj)
+async def obj(message:types.Message)->None:
+    if message.text=="Рестарт":
+        await start(message)
+    else:
+        await message.answer("Задавайте вопрос.")
+        await Status.end.set()
+
+@dp.message_handler(state=Status.waitsphere)
+async def sphere(message:types.Message)->None:
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    if message.text=="Рестарт":
+        await start(message)
+    elif Status.sphere==0:
+        if "1" in message.text:
+            markup.add(types.KeyboardButton("Физика"))
+            markup.add(types.KeyboardButton("Химия"))
+            markup.add(types.KeyboardButton("Астрономия"))
+            markup.add(types.KeyboardButton("Биология"))
+            markup.add(types.KeyboardButton("География"))
+            markup.add(types.KeyboardButton("Рестарт"))
+            Status.sphere = 1
+        elif "2" in message.text:
+            markup.add(types.KeyboardButton("Алгебра"))
+            markup.add(types.KeyboardButton("Геометрия"))
+            markup.add(types.KeyboardButton("Тригонометрия"))
+            markup.add(types.KeyboardButton("Рестарт"))
+            Status.sphere = 2
+        elif "3" in message.text:
+            markup.add(types.KeyboardButton("История"))
+            markup.add(types.KeyboardButton("Философия"))
+            markup.add(types.KeyboardButton("Литература"))
+            markup.add(types.KeyboardButton("История"))
+            markup.add(types.KeyboardButton("Рестарт"))
+            Status.sphere = 3
+        elif "4" in message.text:
+            markup.add(types.KeyboardButton("Обществознание"))
+            markup.add(types.KeyboardButton("Политология"))
+            markup.add(types.KeyboardButton("Языки"))
+            markup.add(types.KeyboardButton("Рестарт"))
+            Status.sphere = 4
+    else:
+        if Status.sphere==1:
+            markup.add(types.KeyboardButton("Физика"))
+            markup.add(types.KeyboardButton("Химия"))
+            markup.add(types.KeyboardButton("Астрономия"))
+            markup.add(types.KeyboardButton("Биология"))
+            markup.add(types.KeyboardButton("География"))
+            markup.add(types.KeyboardButton("Рестарт"))
+        elif Status.sphere==2:
+            markup.add(types.KeyboardButton("Алгебра"))
+            markup.add(types.KeyboardButton("Геометрия"))
+            markup.add(types.KeyboardButton("Тригонометрия"))
+            markup.add(types.KeyboardButton("Рестарт"))
+        elif Status.sphere==3:
+            markup.add(types.KeyboardButton("История"))
+            markup.add(types.KeyboardButton("Философия"))
+            markup.add(types.KeyboardButton("Литература"))
+            markup.add(types.KeyboardButton("История"))
+            markup.add(types.KeyboardButton("Рестарт"))
+        elif Status.sphere==4:
+            markup.add(types.KeyboardButton("Обществознание"))
+            markup.add(types.KeyboardButton("Политология"))
+            markup.add(types.KeyboardButton("Языки"))
+            markup.add(types.KeyboardButton("Рестарт"))
+    await message.answer("Понял. Какой предмет вас интересует?",reply_markup=markup)
+    await Status.waitobj.set()
+
+@dp.message_handler(state="*")
+async def start(message:types.Message)->None:
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True)
+    Status.sphere=0
+    markup.add(types.KeyboardButton("1.Естественные науки"))
+    markup.add(types.KeyboardButton("2.Математические науки"))
+    markup.add(types.KeyboardButton("3.Гуманитарные науки"))
+    markup.add(types.KeyboardButton("4.Общественные науки"))
+    print(message.from_user.id)
+    await message.answer("Здравствуйте, я ИИ \"Универсальный инструмент познания\". Какая сфера наук вас интересует?",reply_markup=markup)
+    await Status.waitsphere.set()
+
+if __name__ == "__main__":
+    executor.start_polling(dp,skip_updates=True)
